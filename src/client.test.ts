@@ -209,8 +209,9 @@ describe("Error Handling", () => {
     const mockResponse = {
       ok: false,
       status: 401,
+      json: async () => ({ error: "Invalid API key" }),
       text: async () => "Invalid API key",
-    } as Response;
+    } as unknown as Response;
 
     (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
 
@@ -249,8 +250,9 @@ describe("Error Handling", () => {
     const mockResponse = {
       ok: false,
       status: 422,
+      json: async () => ({ detail: "Invalid action format" }),
       text: async () => "Invalid action format",
-    } as Response;
+    } as unknown as Response;
 
     (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
 
@@ -266,8 +268,9 @@ describe("Error Handling", () => {
     const mockResponse = {
       ok: false,
       status: 500,
+      json: async () => ({ error: "Internal server error" }),
       text: async () => "Internal server error",
-    } as Response;
+    } as unknown as Response;
 
     (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
 

@@ -125,17 +125,30 @@ export class Client {
 
         // Handle Non-OK responses
         // Don't retry on client errors (400, 401, 403, 422), EXCEPT 429
-        if (response.status === 401)
+        if (response.status === 401) {
           throw new AuthenticationError("Invalid API key");
+        }
         if (response.status === 422) {
-          const err = await response.json().catch(() => ({}));
-          throw new ValidationError(`Validation failed`, response.status, err);
+          let errorData = {};
+          try {
+            if (typeof response.json === "function") {
+              errorData = await response.json();
+            }
+          } catch {
+            // Ignore JSON parse errors
+          }
+          throw new ValidationError(`Validation failed`, response.status, errorData);
         }
         if (response.status === 429) {
-          const retryAfterHeader = response.headers.get("Retry-After");
-          const retryAfter = retryAfterHeader
-            ? parseInt(retryAfterHeader, 10)
-            : undefined;
+          let retryAfter: number | undefined;
+          try {
+            const retryAfterHeader = response.headers?.get?.("Retry-After");
+            if (retryAfterHeader) {
+              retryAfter = parseInt(retryAfterHeader, 10);
+            }
+          } catch {
+            // Ignore header access errors
+          }
           throw new RateLimitError("Rate limit exceeded", retryAfter);
         }
 
