@@ -25,15 +25,32 @@ export class Client {
       this.baseUrl = "https://api.logvault.eu";
       this.timeout = 10000;
       this.enableNonce = false;
+      this.maxRetries = 3;
     } else {
       this.apiKey = options.apiKey;
-      this.baseUrl = options.baseUrl || "https://api.logvault.eu";
+      this.baseUrl = (options.baseUrl || "https://api.logvault.eu").replace(
+        /\/$/,
+        "",
+      );
       this.timeout = options.timeout || 10000;
       this.enableNonce = options.enableNonce || false;
+      this.maxRetries =
+        options.maxRetries !== undefined ? options.maxRetries : 3;
     }
 
+    // Validate API key presence
     if (!this.apiKey) {
-      throw new Error("LogVault API key is required");
+      throw new AuthenticationError("API key is required");
+    }
+
+    // Validate API key format (must start with lv_live_ or lv_test_)
+    if (
+      !this.apiKey.startsWith("lv_live_") &&
+      !this.apiKey.startsWith("lv_test_")
+    ) {
+      throw new AuthenticationError(
+        "Invalid API key format: must start with 'lv_live_' or 'lv_test_'",
+      );
     }
   }
 
@@ -114,14 +131,17 @@ export class Client {
           const err = await response.json().catch(() => ({}));
           throw new ValidationError(`Validation failed`, response.status, err);
         }
+        if (response.status === 429) {
+          const retryAfterHeader = response.headers.get("Retry-After");
+          const retryAfter = retryAfterHeader
+            ? parseInt(retryAfterHeader, 10)
+            : undefined;
+          throw new RateLimitError("Rate limit exceeded", retryAfter);
+        }
 
-        // If 429 (Rate Limit) or 5xx (Server Error), we might retry
-        if (
-          attempt < this.maxRetries &&
-          (response.status === 429 || response.status >= 500)
-        ) {
+        // If 5xx (Server Error), we might retry
+        if (attempt < this.maxRetries && response.status >= 500) {
           // Fall through to retry logic below
-          // Tip: Check Retry-After header for 429? For simplicity we use exp backoff now.
           throw new APIError(`HTTP error ${response.status}`, response.status);
         } else {
           // No more retries or fatal error
@@ -136,13 +156,22 @@ export class Client {
           ? `Request timed out (${this.timeout}ms)`
           : error.message;
 
+        // Don't retry on specific error types
+        if (
+          error instanceof AuthenticationError ||
+          error instanceof ValidationError ||
+          error instanceof RateLimitError
+        ) {
+          throw error;
+        }
+
         // Decide to Retry?
-        // Retry on Network Errors (fetch throws) or Timeouts or 5xx/429 (caught above)
+        // Retry on Network Errors (fetch throws) or Timeouts or 5xx (caught above)
         // Check if error is APIError with retryable status
         const isRetryableStatus =
           error instanceof APIError &&
           error.statusCode &&
-          (error.statusCode === 429 || error.statusCode >= 500);
+          error.statusCode >= 500;
 
         if (
           attempt < this.maxRetries &&

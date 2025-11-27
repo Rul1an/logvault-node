@@ -7,6 +7,7 @@ export interface LogVaultConfig {
   baseUrl?: string;
   timeout?: number;
   enableNonce?: boolean;
+  maxRetries?: number;
 }
 
 // Alias for newer code

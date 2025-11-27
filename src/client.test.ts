@@ -21,7 +21,7 @@ describe("Client Initialization", () => {
   test("should initialize with valid live API key", () => {
     const client = new Client("lv_live_abc123");
     expect(client["apiKey"]).toBe("lv_live_abc123");
-    expect(client["baseUrl"]).toBe("https://api.logvault.io");
+    expect(client["baseUrl"]).toBe("https://api.logvault.eu");
   });
 
   test("should initialize with valid test API key", () => {
@@ -78,7 +78,7 @@ describe("Client.log()", () => {
   let client: Client;
 
   beforeEach(() => {
-    client = new Client("lv_test_abc123");
+    client = new Client({ apiKey: "lv_test_abc123", maxRetries: 0 });
     jest.clearAllMocks();
   });
 
@@ -201,7 +201,7 @@ describe("Error Handling", () => {
   let client: Client;
 
   beforeEach(() => {
-    client = new Client("lv_test_abc123");
+    client = new Client({ apiKey: "lv_test_abc123", maxRetries: 0 });
     jest.clearAllMocks();
   });
 
