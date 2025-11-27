@@ -129,7 +129,7 @@ export class Client {
           throw new AuthenticationError("Invalid API key");
         }
         if (response.status === 422) {
-          let errorData = {};
+          let errorData: any = {};
           try {
             if (typeof response.json === "function") {
               errorData = await response.json();
