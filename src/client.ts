@@ -1,4 +1,12 @@
-import { LogVaultOptions, LogEvent, AuditEventResponse } from "./types";
+import {
+  LogVaultOptions,
+  LogEvent,
+  AuditEventResponse,
+  AuditEventList,
+  ListEventsOptions,
+  VerifyEventResponse,
+  SearchEventsResponse
+} from "./types";
 import {
   LogVaultError,
   APIError,
@@ -8,7 +16,7 @@ import {
 } from "./exceptions";
 
 // Best Practice 2025: Central versioning
-const SDK_VERSION = "0.2.2";
+const SDK_VERSION = "0.2.3";
 // Regex: allows 'auth.login', 'payment.transaction.failed' (snake_case segments separated by dots)
 const ACTION_REGEX = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/i;
 
@@ -208,5 +216,130 @@ export class Client {
       const delay = Math.pow(2, attempt) * 1000;
       await this.sleep(delay);
     }
+  }
+
+  /**
+   * List audit events with optional filtering
+   */
+  async listEvents(options: ListEventsOptions = {}): Promise<AuditEventList> {
+    const params = new URLSearchParams();
+    params.set("page", String(options.page || 1));
+    params.set("page_size", String(Math.min(options.pageSize || 50, 100)));
+    if (options.userId) params.set("user_id", options.userId);
+    if (options.action) params.set("action", options.action);
+
+    const url = `${this.baseUrl}/v1/events?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "User-Agent": `logvault-node/${SDK_VERSION}`,
+      },
+    });
+
+    if (response.status === 401) {
+      throw new AuthenticationError("Invalid API key");
+    }
+
+    if (!response.ok) {
+      throw new APIError(`HTTP error ${response.status}`, response.status);
+    }
+
+    return (await response.json()) as AuditEventList;
+  }
+
+  /**
+   * Get a single audit event by ID
+   */
+  async getEvent(eventId: string): Promise<AuditEventResponse> {
+    const url = `${this.baseUrl}/v1/events/${eventId}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "User-Agent": `logvault-node/${SDK_VERSION}`,
+      },
+    });
+
+    if (response.status === 401) {
+      throw new AuthenticationError("Invalid API key");
+    }
+
+    if (response.status === 404) {
+      throw new APIError(`Event not found: ${eventId}`, 404);
+    }
+
+    if (!response.ok) {
+      throw new APIError(`HTTP error ${response.status}`, response.status);
+    }
+
+    return (await response.json()) as AuditEventResponse;
+  }
+
+  /**
+   * Verify the cryptographic signature of an audit event
+   */
+  async verifyEvent(eventId: string): Promise<VerifyEventResponse> {
+    const url = `${this.baseUrl}/v1/events/${eventId}/verify`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "User-Agent": `logvault-node/${SDK_VERSION}`,
+      },
+    });
+
+    if (response.status === 401) {
+      throw new AuthenticationError("Invalid API key");
+    }
+
+    if (response.status === 404) {
+      throw new APIError(`Event not found: ${eventId}`, 404);
+    }
+
+    if (!response.ok) {
+      throw new APIError(`HTTP error ${response.status}`, response.status);
+    }
+
+    return (await response.json()) as VerifyEventResponse;
+  }
+
+  /**
+   * Search audit events using semantic search
+   *
+   * @param query - Natural language search query (e.g., "failed login attempts")
+   * @param limit - Maximum number of results (default 20)
+   */
+  async searchEvents(query: string, limit: number = 20): Promise<SearchEventsResponse> {
+    if (query.length < 2) {
+      throw new ValidationError("Query must be at least 2 characters");
+    }
+
+    const params = new URLSearchParams();
+    params.set("q", query);
+    params.set("limit", String(limit));
+
+    const url = `${this.baseUrl}/v1/events/search?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "User-Agent": `logvault-node/${SDK_VERSION}`,
+      },
+    });
+
+    if (response.status === 401) {
+      throw new AuthenticationError("Invalid API key");
+    }
+
+    if (!response.ok) {
+      throw new APIError(`HTTP error ${response.status}`, response.status);
+    }
+
+    return (await response.json()) as SearchEventsResponse;
   }
 }

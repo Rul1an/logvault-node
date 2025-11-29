@@ -52,3 +52,31 @@ export interface ListEventsOptions {
   userId?: string;
   action?: string;
 }
+
+export interface VerifyEventResponse {
+  valid: boolean;
+  event_id: string;
+  signature: string;
+  verified_at: string;
+  chain_valid?: boolean;
+  prev_hash_valid?: boolean;
+}
+
+export interface SearchResult {
+  id: string;
+  action: string;
+  resource: string | null;
+  user_id: string | null;
+  timestamp: string;
+  metadata?: Record<string, any>;
+  ai_summary?: string;
+  score: number | null;
+  match_type: "semantic" | "fulltext" | "both";
+}
+
+export interface SearchEventsResponse {
+  query: string;
+  results: SearchResult[];
+  count: number;
+  has_embeddings: boolean;
+}

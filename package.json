@@ -1,6 +1,6 @@
 {
   "name": "@logvault/client",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Audit-Log-as-a-Service client library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
