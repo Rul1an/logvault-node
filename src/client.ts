@@ -5,7 +5,7 @@ import {
   AuditEventList,
   ListEventsOptions,
   VerifyEventResponse,
-  SearchEventsResponse
+  SearchEventsResponse,
 } from "./types";
 import {
   LogVaultError,
@@ -16,7 +16,7 @@ import {
 } from "./exceptions";
 
 // Best Practice 2025: Central versioning
-const SDK_VERSION = "0.2.3";
+const SDK_VERSION = "0.2.4";
 // Regex: allows 'auth.login', 'payment.transaction.failed' (snake_case segments separated by dots)
 const ACTION_REGEX = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/i;
 
@@ -145,7 +145,11 @@ export class Client {
           } catch {
             // Ignore JSON parse errors
           }
-          throw new ValidationError(`Validation failed`, response.status, errorData);
+          throw new ValidationError(
+            `Validation failed`,
+            response.status,
+            errorData,
+          );
         }
         if (response.status === 429) {
           let retryAfter: number | undefined;
@@ -313,7 +317,10 @@ export class Client {
    * @param query - Natural language search query (e.g., "failed login attempts")
    * @param limit - Maximum number of results (default 20)
    */
-  async searchEvents(query: string, limit: number = 20): Promise<SearchEventsResponse> {
+  async searchEvents(
+    query: string,
+    limit: number = 20,
+  ): Promise<SearchEventsResponse> {
     if (query.length < 2) {
       throw new ValidationError("Query must be at least 2 characters");
     }
@@ -342,4 +349,254 @@ export class Client {
 
     return (await response.json()) as SearchEventsResponse;
   }
+
+  // ========================================
+  // CHAIN INTEGRITY METHODS
+  // ========================================
+
+  /**
+   * Verify the cryptographic integrity of the audit log chain
+   *
+   * This method walks through the hash chain and verifies:
+   * - Each event's chain_hash is correctly computed
+   * - Each event's prev_hash matches the previous event's chain_hash
+   * - No events are missing from the chain
+   *
+   * @param options - Optional filters (startDate, endDate, limit)
+   */
+  async verifyChain(
+    options: {
+      startDate?: string;
+      endDate?: string;
+      limit?: number;
+    } = {},
+  ): Promise<ChainVerificationResult> {
+    const params = new URLSearchParams();
+    params.set("limit", String(Math.min(options.limit || 1000, 10000)));
+    if (options.startDate) params.set("start_date", options.startDate);
+    if (options.endDate) params.set("end_date", options.endDate);
+
+    const url = `${this.baseUrl}/v1/chain/verify?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "User-Agent": `logvault-node/${SDK_VERSION}`,
+      },
+    });
+
+    if (response.status === 401) {
+      throw new AuthenticationError("Invalid API key");
+    }
+
+    if (!response.ok) {
+      throw new APIError(`HTTP error ${response.status}`, response.status);
+    }
+
+    return (await response.json()) as ChainVerificationResult;
+  }
+
+  /**
+   * Get statistics about the hash chain
+   */
+  async getChainStats(): Promise<ChainStats> {
+    const url = `${this.baseUrl}/v1/chain/stats`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "User-Agent": `logvault-node/${SDK_VERSION}`,
+      },
+    });
+
+    if (response.status === 401) {
+      throw new AuthenticationError("Invalid API key");
+    }
+
+    if (!response.ok) {
+      throw new APIError(`HTTP error ${response.status}`, response.status);
+    }
+
+    return (await response.json()) as ChainStats;
+  }
+
+  /**
+   * Get cryptographic proof for a specific event
+   *
+   * This proof can be used by auditors to independently verify
+   * the event's integrity without access to the LogVault database.
+   *
+   * @param eventId - The UUID of the event
+   */
+  async getEventProof(eventId: string): Promise<EventProof> {
+    const url = `${this.baseUrl}/v1/events/${eventId}/proof`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "User-Agent": `logvault-node/${SDK_VERSION}`,
+      },
+    });
+
+    if (response.status === 401) {
+      throw new AuthenticationError("Invalid API key");
+    }
+
+    if (response.status === 404) {
+      throw new APIError(`Event not found: ${eventId}`, 404);
+    }
+
+    if (!response.ok) {
+      throw new APIError(`HTTP error ${response.status}`, response.status);
+    }
+
+    return (await response.json()) as EventProof;
+  }
+
+  /**
+   * Verify an event's chain integrity locally (offline verification)
+   *
+   * This method allows auditors to verify events without making API calls.
+   * Note: This only verifies the chain_hash computation, not the HMAC signature.
+   *
+   * @param event - Event object containing signature, prev_hash, chain_hash
+   * @param prevChainHash - Optional override for previous chain hash
+   */
+  verifyEventLocally(
+    event: { signature: string; prev_hash?: string; chain_hash?: string },
+    prevChainHash?: string,
+  ): LocalVerificationResult {
+    const crypto = require("crypto");
+    const GENESIS_HASH =
+      "GENESIS_" +
+      crypto
+        .createHash("sha256")
+        .update("LogVault_Chain_Genesis_2025")
+        .digest("hex")
+        .substring(0, 32);
+
+    const checks = {
+      hasChainHash: false,
+      chainHashValid: false,
+      prevHashMatches: false,
+    };
+
+    // Check 1: Does event have chain_hash?
+    if (!event.chain_hash) {
+      return {
+        isValid: false,
+        checks,
+        details: "Event has no chain_hash (legacy event)",
+      };
+    }
+    checks.hasChainHash = true;
+
+    // Check 2: Is chain_hash correctly computed?
+    const prev = prevChainHash || event.prev_hash || GENESIS_HASH;
+    const chainInput = `${event.signature}:${prev}:LogVault`;
+    const expectedChain = crypto
+      .createHash("sha256")
+      .update(chainInput)
+      .digest("hex");
+
+    if (expectedChain === event.chain_hash) {
+      checks.chainHashValid = true;
+    } else {
+      return {
+        isValid: false,
+        checks,
+        details: `Chain hash mismatch. Expected: ${expectedChain.substring(0, 16)}..., Got: ${event.chain_hash.substring(0, 16)}...`,
+      };
+    }
+
+    // Check 3: Does prev_hash match provided previous chain hash?
+    if (prevChainHash) {
+      if (event.prev_hash === prevChainHash) {
+        checks.prevHashMatches = true;
+      } else {
+        return {
+          isValid: false,
+          checks,
+          details: "prev_hash mismatch with provided previous chain hash",
+        };
+      }
+    } else {
+      checks.prevHashMatches = true;
+    }
+
+    return {
+      isValid: true,
+      checks,
+      details: "Event chain integrity verified",
+    };
+  }
+}
+
+// Type definitions for chain integrity
+export interface ChainVerificationResult {
+  is_valid: boolean;
+  events_checked: number;
+  events_with_chain: number;
+  legacy_events: number;
+  first_invalid_event: string | null;
+  error_type: "BROKEN_CHAIN" | "INVALID_CHAIN_HASH" | null;
+  details: string;
+  verified_at: string;
+}
+
+export interface ChainStats {
+  total_events: number;
+  chained_events: number;
+  legacy_events: number;
+  chain_coverage: number;
+  first_chained_event: {
+    id: string;
+    created_at: string;
+    chain_hash: string;
+  } | null;
+  last_chained_event: {
+    id: string;
+    created_at: string;
+    chain_hash: string;
+  } | null;
+  genesis_hash: string;
+}
+
+export interface EventProof {
+  event: AuditEventResponse;
+  proof: {
+    signature: string;
+    chain_hash: string | null;
+    prev_hash: string | null;
+    is_genesis: boolean;
+    is_chained: boolean;
+    previous_event: {
+      id: string;
+      chain_hash: string;
+      created_at: string;
+    } | null;
+    next_event: {
+      id: string;
+      created_at: string;
+    } | null;
+  };
+  verification: {
+    algorithm: string;
+    formula: string;
+    genesis_hash: string;
+    steps: string[];
+  };
+}
+
+export interface LocalVerificationResult {
+  isValid: boolean;
+  checks: {
+    hasChainHash: boolean;
+    chainHashValid: boolean;
+    prevHashMatches: boolean;
+  };
+  details: string;
 }
