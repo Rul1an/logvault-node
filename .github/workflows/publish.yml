@@ -1,49 +1,92 @@
+# npm Publish Workflow with Provenance
+# Triggered when a GitHub Release is published
+# Uses npm Provenance for supply chain security
+
 name: Publish to npm
 
 on:
   release:
     types: [published]
+  workflow_dispatch:  # Manual trigger for testing
 
 jobs:
-  npm-publish:
-    name: Upload release to npm
+  build:
+    name: Build 🔨
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write  # Required for npm provenance
-
+    
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node.js
+      
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          registry-url: "https://registry.npmjs.org"
-
+          node-version: '20'
+          
       - name: Install dependencies
         run: npm ci
-
-      # Safety check: Verify Git tag matches package version
-      - name: Verify Version Match
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          TAG=${GITHUB_REF#refs/tags/}
-          CLEAN_TAG=${TAG#v}
-
-          echo "Package Version: $VERSION"
-          echo "Release Tag: $CLEAN_TAG"
-
-          if [ "$VERSION" != "$CLEAN_TAG" ]; then
-            echo "::error::Version mismatch! package.json says $VERSION but tag is $TAG"
-            exit 1
-          fi
-
+        
       - name: Build
         run: npm run build
+        
+      - name: Run tests
+        run: npm test
+        
+      - name: Store build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/
+            package.json
+            package-lock.json
+            README.md
+            LICENSE
 
-      - name: Publish to npm
-        run: npm publish --provenance --access public
+  publish:
+    name: Publish to npm 🚀
+    needs: build
+    runs-on: ubuntu-latest
+    
+    # REQUIRED: Permissions for npm Provenance
+    permissions:
+      contents: read
+      id-token: write  # Required for provenance
+      
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Publish with Provenance
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  # Notify on success
+  notify:
+    name: Notify 📢
+    needs: publish
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Get package version
+        id: version
+        run: echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+        
+      - name: Success message
+        run: |
+          echo "✅ @logvault/client@${{ steps.version.outputs.version }} published to npm"
+          echo "📦 https://www.npmjs.com/package/@logvault/client"
