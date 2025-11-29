@@ -1,17 +1,31 @@
 # npm Publish Workflow with Provenance
-# Triggered when a GitHub Release is published
-# Uses npm Provenance for supply chain security
+# 
+# SETUP REQUIRED:
+# 1. Create npm organization: https://www.npmjs.com/org/create
+# 2. Link package to organization
+# 3. Create Granular Access Token with org scope
+# 4. Add token as NPM_TOKEN secret in GitHub
+#
+# For full Trusted Publishing (no token needed):
+# - Requires npm CLI 11.5.1+ (Node.js 24+)
+# - See: https://docs.npmjs.com/generating-provenance-statements
 
 name: Publish to npm
 
 on:
   release:
     types: [published]
-  workflow_dispatch:  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no actual publish)'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   build:
-    name: Build 🔨
+    name: Build & Test 🔨
     runs-on: ubuntu-latest
     
     steps:
@@ -47,10 +61,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     
-    # REQUIRED: Permissions for npm Provenance
+    # REQUIRED: Permissions for npm Provenance (OIDC)
     permissions:
       contents: read
-      id-token: write  # Required for provenance
+      id-token: write  # Required for provenance attestation
       
     steps:
       - uses: actions/checkout@v4
@@ -69,24 +83,53 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
+      - name: Verify package version matches tag
+        if: github.event_name == 'release'
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${{ github.event.release.tag_name }}"
+          TAG_VERSION="${TAG_VERSION#v}"  # Remove 'v' prefix if present
+          
+          echo "Package version: $PACKAGE_VERSION"
+          echo "Tag version: $TAG_VERSION"
+          
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Version mismatch! package.json says $PACKAGE_VERSION but tag is v$TAG_VERSION"
+            exit 1
+          fi
+          echo "✅ Versions match!"
+          
       - name: Publish with Provenance
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+      - name: Dry Run (no publish)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "🧪 Dry run mode - not publishing"
+          npm pack --dry-run
 
-  # Notify on success
-  notify:
-    name: Notify 📢
+  verify:
+    name: Verify Publication ✅
     needs: publish
     runs-on: ubuntu-latest
-    if: success()
+    if: ${{ github.event.inputs.dry_run != 'true' }}
     
     steps:
-      - name: Get package version
-        id: version
-        run: echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+      - name: Wait for npm registry
+        run: sleep 30
         
-      - name: Success message
+      - name: Verify package on npm
         run: |
-          echo "✅ @logvault/client@${{ steps.version.outputs.version }} published to npm"
-          echo "📦 https://www.npmjs.com/package/@logvault/client"
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          
+          echo "Checking @logvault/client@$VERSION on npm..."
+          npm view @logvault/client@$VERSION
+          
+      - name: Verify provenance
+        run: |
+          echo "Verifying provenance signatures..."
+          npm audit signatures @logvault/client || echo "Note: audit signatures may take time to propagate"
