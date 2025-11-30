@@ -95,10 +95,11 @@ jobs:
           fi
           echo "✅ Versions match!"
 
-      - name: Publish with Provenance (OIDC Trusted Publishing)
+      - name: Publish with Provenance
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        # Using npm OIDC Trusted Publishing - no token needed
         run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Dry Run (no publish)
         if: ${{ github.event.inputs.dry_run == 'true' }}
