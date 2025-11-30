@@ -1,14 +1,13 @@
-# npm Publish Workflow with Provenance
-# 
-# SETUP REQUIRED:
-# 1. Create npm organization: https://www.npmjs.com/org/create
-# 2. Link package to organization
-# 3. Create Granular Access Token with org scope
-# 4. Add token as NPM_TOKEN secret in GitHub
+# npm Publish Workflow with OIDC Trusted Publishing
 #
-# For full Trusted Publishing (no token needed):
-# - Requires npm CLI 11.5.1+ (Node.js 24+)
-# - See: https://docs.npmjs.com/generating-provenance-statements
+# SETUP:
+# 1. Configure Trusted Publisher on npmjs.com:
+#    - Organization: Rul1an
+#    - Repository: logvault-node  
+#    - Workflow: publish.yml
+# 2. No NPM_TOKEN secret needed!
+#
+# See: https://docs.npmjs.com/generating-provenance-statements
 
 name: Publish to npm
 
@@ -27,24 +26,24 @@ jobs:
   build:
     name: Build & Test 🔨
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Build
         run: npm run build
-        
+
       - name: Run tests
         run: npm test
-        
+
       - name: Store build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -60,51 +59,51 @@ jobs:
     name: Publish to npm 🚀
     needs: build
     runs-on: ubuntu-latest
-    
+
     # REQUIRED: Permissions for npm Provenance (OIDC)
     permissions:
       contents: read
       id-token: write  # Required for provenance attestation
-      
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-          
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist
-          
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Verify package version matches tag
         if: github.event_name == 'release'
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION="${{ github.event.release.tag_name }}"
           TAG_VERSION="${TAG_VERSION#v}"  # Remove 'v' prefix if present
-          
+
           echo "Package version: $PACKAGE_VERSION"
           echo "Tag version: $TAG_VERSION"
-          
+
           if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
             echo "❌ Version mismatch! package.json says $PACKAGE_VERSION but tag is v$TAG_VERSION"
             exit 1
           fi
           echo "✅ Versions match!"
-          
-      - name: Publish with Provenance
+
+      - name: Publish with Provenance (OIDC Trusted Publishing)
         if: ${{ github.event.inputs.dry_run != 'true' }}
+        # No NODE_AUTH_TOKEN needed - using npm's OIDC Trusted Publishing
+        # Requires: npm Trusted Publisher configured on npmjs.com
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          
+
       - name: Dry Run (no publish)
         if: ${{ github.event.inputs.dry_run == 'true' }}
         run: |
@@ -116,19 +115,19 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.dry_run != 'true' }}
-    
+
     steps:
       - name: Wait for npm registry
         run: sleep 30
-        
+
       - name: Verify package on npm
         run: |
           VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"
-          
+
           echo "Checking @logvault/client@$VERSION on npm..."
           npm view @logvault/client@$VERSION
-          
+
       - name: Verify provenance
         run: |
           echo "Verifying provenance signatures..."
