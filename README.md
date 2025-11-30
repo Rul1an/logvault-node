@@ -4,7 +4,7 @@
 [![Node.js](https://img.shields.io/node/v/@logvault/client.svg)](https://www.npmjs.com/package/@logvault/client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Official Node.js/TypeScript client for [LogVault](https://logvault.app) — Audit-Log-as-a-Service for B2B SaaS. SOC 2, GDPR, and ISO 27001 compliant. Hosted in the EU.
+Official Node.js/TypeScript client for [LogVault](https://logvault.eu) — Audit-Log-as-a-Service for B2B SaaS. SOC 2, GDPR, and ISO 27001 compliant. Hosted in the EU.
 
 ## Installation
 
@@ -143,8 +143,8 @@ Actions follow the pattern `entity.verb`:
 
 ## Links
 
-- [Documentation](https://logvault.app/docs)
-- [API Reference](https://logvault.app/docs/api)
+- [Documentation](https://logvault.eu/docs)
+- [API Reference](https://logvault.eu/docs/api)
 - [GitHub](https://github.com/Rul1an/logvault-node)
 - [npm](https://www.npmjs.com/package/@logvault/client)
 
