@@ -1,11 +1,8 @@
-# npm Publish Workflow with OIDC Trusted Publishing
+# npm Publish Workflow with Provenance
 #
 # SETUP:
-# 1. Configure Trusted Publisher on npmjs.com:
-#    - Organization: Rul1an
-#    - Repository: logvault-node  
-#    - Workflow: publish.yml
-# 2. No NPM_TOKEN secret needed!
+# 1. Add NPM_TOKEN secret to this repository
+# 2. Token should have publish access to @logvault scope
 #
 # See: https://docs.npmjs.com/generating-provenance-statements
 
@@ -98,11 +95,11 @@ jobs:
           fi
           echo "✅ Versions match!"
 
-      - name: Publish with Provenance (OIDC Trusted Publishing)
+      - name: Publish with Provenance
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        # No NODE_AUTH_TOKEN needed - using npm's OIDC Trusted Publishing
-        # Requires: npm Trusted Publisher configured on npmjs.com
         run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Dry Run (no publish)
         if: ${{ github.event.inputs.dry_run == 'true' }}
