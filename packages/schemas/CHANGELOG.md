@@ -1,5 +1,13 @@
 # @logvault/schemas
 
+## 0.2.1
+
+### Patch Changes
+
+- 1263324: Fix npm publishing from public monorepo
+  - Update repository metadata to point to public repo
+  - Fix Trusted Publisher OIDC configuration
+
 ## 0.2.0
 
 ### Minor Changes
