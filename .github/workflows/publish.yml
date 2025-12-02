@@ -32,6 +32,12 @@ jobs:
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Configure npm for scoped packages
+        run: |
+          npm config set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
+          npm config set @logvault:registry https://registry.npmjs.org/
+          npm whoami --registry=https://registry.npmjs.org/ || echo "Token verification failed"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
