@@ -1,6 +1,6 @@
 {
   "name": "@logvault/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "LogVault CLI - Audit logging setup in 2 minutes",
   "type": "module",
   "bin": {

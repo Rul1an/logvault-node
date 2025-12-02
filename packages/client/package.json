@@ -1,6 +1,6 @@
 {
   "name": "@logvault/client",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "Audit-Log-as-a-Service client library with type-safe logging",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -46,7 +46,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@logvault/schemas": ">=0.1.0",
+    "@logvault/schemas": ">=0.2.0",
     "zod": ">=3.22.0"
   },
   "peerDependenciesMeta": {
@@ -70,4 +70,3 @@
     "zod": "^3.24.1"
   }
 }
-
