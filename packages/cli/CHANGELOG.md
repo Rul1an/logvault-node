@@ -1,5 +1,13 @@
 # @logvault/cli
 
+## 0.2.2
+
+### Patch Changes
+
+- 3720a1d: Enable Trusted Publisher (OIDC) for secure npm publishing
+  - No NPM_TOKEN required
+  - Provenance enabled for supply chain security
+
 ## 0.2.1
 
 ### Patch Changes
