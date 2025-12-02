@@ -46,7 +46,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@logvault/schemas": ">=0.2.0",
+    "@logvault/schemas": ">=0.2.1",
     "zod": ">=3.22.0"
   },
   "peerDependenciesMeta": {
