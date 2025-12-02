@@ -1,5 +1,13 @@
 # @logvault/schemas
 
+## 0.2.3
+
+### Patch Changes
+
+- f7ab68f: Fix npm publishing with proper authentication
+  - Repository metadata now points to public monorepo
+  - Provenance enabled for supply chain security
+
 ## 0.2.2
 
 ### Patch Changes

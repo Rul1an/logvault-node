@@ -1,6 +1,6 @@
 {
   "name": "@logvault/schemas",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Type-safe Zod schemas for LogVault audit events",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
