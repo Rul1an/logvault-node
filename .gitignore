@@ -3,16 +3,13 @@ node_modules/
 
 # Build output
 dist/
+*.tsbuildinfo
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
-
-# Testing
-coverage/
-.nyc_output/
 
 # OS
 .DS_Store
@@ -21,7 +18,15 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
 
 # Environment
 .env
 .env.local
+.env.*.local
+
+# Turbo
+.turbo/

@@ -8,6 +8,46 @@ export interface LogVaultConfig {
   timeout?: number;
   enableNonce?: boolean;
   maxRetries?: number;
+  /**
+   * Enable local development mode.
+   * In local mode, events are logged to console instead of sent to the API.
+   * Auto-detects NODE_ENV === 'development' if set to 'auto'.
+   *
+   * @default false
+   */
+  localMode?: boolean | "auto";
+  /**
+   * Options for local mode output.
+   */
+  localModeOptions?: LocalModeOptions;
+}
+
+export interface LocalModeOptions {
+  /**
+   * Show colored output in console.
+   * @default true
+   */
+  colors?: boolean;
+  /**
+   * Show table/box formatting.
+   * @default true
+   */
+  prettyPrint?: boolean;
+  /**
+   * Warn about potential PII in metadata.
+   * @default true
+   */
+  piiWarnings?: boolean;
+  /**
+   * Show compliance status (GDPR, SOC2).
+   * @default true
+   */
+  showCompliance?: boolean;
+  /**
+   * Custom logger function.
+   * @default console.log
+   */
+  logger?: (message: string) => void;
 }
 
 // Alias for newer code

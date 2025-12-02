@@ -1,153 +1,129 @@
-# LogVault Node.js SDK
+# LogVault JavaScript/TypeScript SDKs
 
-[![npm version](https://img.shields.io/npm/v/@logvault/client.svg)](https://www.npmjs.com/package/@logvault/client)
-[![Node.js](https://img.shields.io/node/v/@logvault/client.svg)](https://www.npmjs.com/package/@logvault/client)
+Official JavaScript and TypeScript SDKs for [LogVault](https://logvault.eu) - Audit logging for compliance.
+
+[![npm version](https://badge.fury.io/js/%40logvault%2Fclient.svg)](https://www.npmjs.com/package/@logvault/client)
+[![npm version](https://badge.fury.io/js/%40logvault%2Fschemas.svg)](https://www.npmjs.com/package/@logvault/schemas)
+[![npm version](https://badge.fury.io/js/%40logvault%2Fcli.svg)](https://www.npmjs.com/package/@logvault/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Official Node.js/TypeScript client for [LogVault](https://logvault.eu) — Audit-Log-as-a-Service for B2B SaaS. SOC 2, GDPR, and ISO 27001 compliant. Hosted in the EU.
+## Packages
 
-## Installation
+This monorepo contains the following packages:
 
-```bash
-npm install @logvault/client
-```
+| Package | Description | npm |
+|---------|-------------|-----|
+| [`@logvault/client`](./packages/client) | Core SDK for audit logging | [![npm](https://img.shields.io/npm/v/@logvault/client)](https://www.npmjs.com/package/@logvault/client) |
+| [`@logvault/schemas`](./packages/schemas) | Type-safe Zod schemas | [![npm](https://img.shields.io/npm/v/@logvault/schemas)](https://www.npmjs.com/package/@logvault/schemas) |
+| [`@logvault/cli`](./packages/cli) | CLI for quick setup | [![npm](https://img.shields.io/npm/v/@logvault/cli)](https://www.npmjs.com/package/@logvault/cli) |
 
 ## Quick Start
 
-```typescript
-import { Client } from '@logvault/client';
+### Option 1: CLI (Recommended)
 
-const client = new Client('your-api-key');
-
-const event = await client.log({
-    action: 'user.login',
-    userId: 'user_123',
-    resource: 'auth',
-    metadata: { ip: '192.168.1.1', method: 'password' }
-});
-
-console.log(`Logged: ${event.id}`);
+```bash
+npx @logvault/cli init
 ```
 
-## Features
+This will:
+1. Open your browser to authenticate
+2. Fetch your API key
+3. Print it to the terminal
 
-- **TypeScript First** — Full type definitions included
-- **Zero Dependencies** — Uses native `fetch` API
-- **Automatic Retries** — Exponential backoff with jitter
-- **Input Validation** — Action format and payload size checks
-- **Fail-Safe Serialization** — Handles circular references
+### Option 2: Manual Installation
+
+```bash
+# Core client
+npm install @logvault/client
+
+# Optional: Type-safe schemas
+npm install @logvault/schemas zod
+```
 
 ## Usage
 
-### Express Middleware
+### Basic Usage
 
 ```typescript
-import express from 'express';
-import { Client } from '@logvault/client';
+import { LogVault } from '@logvault/client';
 
-const app = express();
-const logvault = new Client(process.env.LOGVAULT_API_KEY!);
+const client = new LogVault('your-api-key');
 
-app.use(async (req, res, next) => {
-    if (req.user) {
-        await logvault.log({
-            action: `api.${req.method.toLowerCase()}`,
-            userId: req.user.id,
-            resource: req.path,
-            metadata: { ip: req.ip }
-        });
-    }
-    next();
+await client.log({
+  action: 'user.login',
+  userId: 'user_123',
+  metadata: {
+    ip: '192.168.1.1',
+    browser: 'Chrome'
+  }
 });
 ```
 
-### Next.js Server Action
+### Type-Safe Logging (Recommended)
 
 ```typescript
-// app/actions/audit.ts
-'use server';
+import { TypedClient } from '@logvault/client';
+import { AuthLoginSchema } from '@logvault/schemas';
 
+const client = new TypedClient({ apiKey: 'your-api-key' });
+
+// Full TypeScript autocomplete and validation
+await client.logTyped(AuthLoginSchema, {
+  action: 'auth.login',
+  userId: 'user_123',
+  metadata: {
+    method: 'password', // Autocomplete: 'password' | 'oauth' | 'sso' | ...
+    ip: '192.168.1.1',
+  },
+});
+```
+
+### Local Mode (Development)
+
+```typescript
 import { Client } from '@logvault/client';
 
-const client = new Client(process.env.LOGVAULT_API_KEY!);
-
-export async function logUserAction(action: string, userId: string) {
-    await client.log({
-        action,
-        userId,
-        resource: 'web-app'
-    });
-}
-```
-
-### List Events
-
-```typescript
-const response = await client.listEvents({
-    page: 1,
-    pageSize: 50,
-    userId: 'user_123'  // Optional filter
-});
-
-for (const event of response.events) {
-    console.log(`${event.timestamp} - ${event.action}`);
-}
-```
-
-### Error Handling
-
-```typescript
-import { Client, AuthenticationError, RateLimitError, APIError } from '@logvault/client';
-
-const client = new Client('your-api-key');
-
-try {
-    await client.log({ action: 'user.login', userId: 'user_123' });
-} catch (error) {
-    if (error instanceof AuthenticationError) {
-        console.error('Invalid API key');
-    } else if (error instanceof RateLimitError) {
-        console.error(`Rate limited. Retry after ${error.retryAfter}s`);
-    } else if (error instanceof APIError) {
-        console.error(`API error: ${error.statusCode}`);
-    }
-}
-```
-
-### Configuration Options
-
-```typescript
 const client = new Client({
-    apiKey: 'your-api-key',
-    baseUrl: 'https://api.logvault.eu',  // Default
-    timeout: 30000,                       // Request timeout (ms)
-    maxRetries: 3                         // Retry attempts
+  apiKey: process.env.LOGVAULT_API_KEY || '',
+  localMode: 'auto', // Enabled when NODE_ENV === 'development'
+});
+
+// Events logged to console, no API calls
+await client.log({
+  action: 'user.login',
+  userId: 'user_123',
 });
 ```
 
-## Action Format
+## Documentation
 
-Actions follow the pattern `entity.verb`:
-
-| Category | Examples |
-|----------|----------|
-| Auth | `user.login`, `user.logout`, `user.password_reset` |
-| Documents | `document.create`, `document.read`, `document.delete` |
-| Permissions | `permission.grant`, `permission.revoke`, `role.assign` |
-| Data | `data.export`, `data.delete` |
-
-## Requirements
-
-- Node.js 18+ (uses native `fetch`)
-- TypeScript 5+ (optional)
-
-## Links
-
-- [Documentation](https://logvault.eu/docs)
+- [Quick Start Guide](https://logvault.eu/docs/quickstart)
+- [JavaScript SDK Reference](https://logvault.eu/docs/sdks/javascript)
 - [API Reference](https://logvault.eu/docs/api)
-- [GitHub](https://github.com/Rul1an/logvault-node)
-- [npm](https://www.npmjs.com/package/@logvault/client)
+- [Type-Safe Schemas](https://logvault.eu/docs/schemas)
+
+## Development
+
+This monorepo uses [pnpm](https://pnpm.io/) and [Turborepo](https://turbo.build/).
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Run tests
+pnpm test
+
+# Type check
+pnpm typecheck
+```
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT © [LogVault](https://logvault.eu)

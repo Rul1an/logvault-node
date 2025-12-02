@@ -6,6 +6,7 @@ import {
   ListEventsOptions,
   VerifyEventResponse,
   SearchEventsResponse,
+  LocalModeOptions,
 } from "./types";
 import {
   LogVaultError,
@@ -14,9 +15,15 @@ import {
   AuthenticationError,
   RateLimitError,
 } from "./exceptions";
+import {
+  formatLocalEvent,
+  printLocalEvent,
+  printLocalModeBanner,
+  defaultLocalModeOptions,
+} from "./localMode";
 
 // Best Practice 2025: Central versioning
-const SDK_VERSION = "0.2.4";
+const SDK_VERSION = "0.4.0";
 // Regex: allows 'auth.login', 'payment.transaction.failed' (snake_case segments separated by dots)
 const ACTION_REGEX = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/i;
 
@@ -26,6 +33,9 @@ export class Client {
   private timeout: number;
   private maxRetries: number = 3;
   private enableNonce: boolean;
+  private localMode: boolean;
+  private localModeOptions: LocalModeOptions;
+  private localModeBannerShown: boolean = false;
 
   constructor(options: string | LogVaultOptions) {
     if (typeof options === "string") {
@@ -34,6 +44,8 @@ export class Client {
       this.timeout = 10000;
       this.enableNonce = false;
       this.maxRetries = 3;
+      this.localMode = false;
+      this.localModeOptions = defaultLocalModeOptions;
     } else {
       this.apiKey = options.apiKey;
       this.baseUrl = (options.baseUrl || "https://api.logvault.eu").replace(
@@ -44,6 +56,24 @@ export class Client {
       this.enableNonce = options.enableNonce || false;
       this.maxRetries =
         options.maxRetries !== undefined ? options.maxRetries : 3;
+
+      // Local Mode: auto-detect or explicit
+      if (options.localMode === "auto") {
+        this.localMode = process.env.NODE_ENV === "development";
+      } else {
+        this.localMode = options.localMode || false;
+      }
+
+      this.localModeOptions = {
+        ...defaultLocalModeOptions,
+        ...options.localModeOptions,
+      };
+    }
+
+    // In local mode, API key validation is relaxed
+    if (this.localMode) {
+      // Show banner on first use
+      return;
     }
 
     // Validate API key presence
@@ -63,6 +93,13 @@ export class Client {
   }
 
   /**
+   * Check if local mode is active
+   */
+  isLocalMode(): boolean {
+    return this.localMode;
+  }
+
+  /**
    * Helper for exponential backoff with jitter
    */
   private async sleep(ms: number): Promise<void> {
@@ -70,6 +107,32 @@ export class Client {
   }
 
   async log(event: LogEvent): Promise<AuditEventResponse> {
+    // LOCAL MODE: Log to console instead of API
+    if (this.localMode) {
+      // Show banner once
+      if (!this.localModeBannerShown) {
+        printLocalModeBanner(this.localModeOptions);
+        this.localModeBannerShown = true;
+      }
+
+      // Format and print event
+      const result = formatLocalEvent(event, this.localModeOptions);
+      printLocalEvent(result, this.localModeOptions);
+
+      // Return mock response
+      return {
+        id: `local_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        org_id: "local_org",
+        user_id: event.userId || "unknown",
+        action: event.action,
+        resource: event.resource || "",
+        timestamp: new Date().toISOString(),
+        metadata: event.metadata || {},
+        signature: "local_mode_no_signature",
+        created_at: new Date().toISOString(),
+      } as AuditEventResponse;
+    }
+
     // 1. INPUT SANITIZATION
     if (!ACTION_REGEX.test(event.action)) {
       throw new ValidationError(

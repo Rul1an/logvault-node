@@ -1,131 +1,55 @@
-# npm Publish Workflow with Provenance
-#
-# SETUP:
-# 1. Add NPM_TOKEN secret to this repository
-# 2. Token should have publish access to @logvault scope
-#
-# See: https://docs.npmjs.com/generating-provenance-statements
-
-name: Publish to npm
+name: Publish Packages
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      dry_run:
-        description: 'Dry run (no actual publish)'
-        required: false
-        default: 'false'
-        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - ".changeset/**"
+      - "packages/**"
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  build:
-    name: Build & Test 🔨
+  release:
+    name: Release
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: pnpm build
 
-      - name: Run tests
-        run: npm test
-
-      - name: Store build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@v1
         with:
-          name: dist
-          path: |
-            dist/
-            package.json
-            package-lock.json
-            README.md
-            LICENSE
-
-  publish:
-    name: Publish to npm 🚀
-    needs: build
-    runs-on: ubuntu-latest
-
-    # REQUIRED: Permissions for npm Provenance (OIDC)
-    permissions:
-      contents: read
-      id-token: write  # Required for provenance attestation
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify package version matches tag
-        if: github.event_name == 'release'
-        run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          TAG_VERSION="${{ github.event.release.tag_name }}"
-          TAG_VERSION="${TAG_VERSION#v}"  # Remove 'v' prefix if present
-
-          echo "Package version: $PACKAGE_VERSION"
-          echo "Tag version: $TAG_VERSION"
-
-          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
-            echo "❌ Version mismatch! package.json says $PACKAGE_VERSION but tag is v$TAG_VERSION"
-            exit 1
-          fi
-          echo "✅ Versions match!"
-
-      - name: Publish with Provenance
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: npm publish --access public --provenance
+          publish: pnpm release
+          version: pnpm version-packages
+          title: "chore: version packages"
+          commit: "chore: version packages"
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Dry Run (no publish)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        run: |
-          echo "🧪 Dry run mode - not publishing"
-          npm pack --dry-run
-
-  verify:
-    name: Verify Publication ✅
-    needs: publish
-    runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.dry_run != 'true' }}
-
-    steps:
-      - name: Wait for npm registry
-        run: sleep 30
-
-      - name: Verify package on npm
-        run: |
-          VERSION="${{ github.event.release.tag_name }}"
-          VERSION="${VERSION#v}"
-
-          echo "Checking @logvault/client@$VERSION on npm..."
-          npm view @logvault/client@$VERSION
-
-      - name: Verify provenance
-        run: |
-          echo "Verifying provenance signatures..."
-          npm audit signatures @logvault/client || echo "Note: audit signatures may take time to propagate"

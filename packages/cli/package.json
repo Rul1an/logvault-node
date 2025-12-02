@@ -1,0 +1,62 @@
+{
+  "name": "@logvault/cli",
+  "version": "0.1.0",
+  "description": "LogVault CLI - Audit logging setup in 2 minutes",
+  "type": "module",
+  "bin": {
+    "logvault": "./dist/bin/logvault.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/bin/logvault.js",
+    "test": "echo 'No tests yet'",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "logvault",
+    "audit",
+    "cli",
+    "logging",
+    "compliance",
+    "soc2",
+    "gdpr",
+    "security"
+  ],
+  "author": "LogVault <support@logvault.eu>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rul1an/logvault-node.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/Rul1an/logvault-node/issues"
+  },
+  "homepage": "https://logvault.eu/docs/cli",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "open": "^10.1.0",
+    "ora": "^8.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.17.0",
+    "@typescript-eslint/parser": "^8.17.0",
+    "eslint": "^9.16.0",
+    "typescript": "^5.7.2"
+  }
+}
