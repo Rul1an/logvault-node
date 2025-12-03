@@ -1,5 +1,13 @@
 # @logvault/eslint-plugin
 
+## 0.2.1
+
+### Patch Changes
+
+- efedc29: Fix npm publish for scoped package
+
+  Added publishConfig with access: public to enable publishing scoped packages to npm.
+
 ## 0.2.0
 
 ### Minor Changes
