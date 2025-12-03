@@ -138,9 +138,9 @@ describe("no-pii-in-logs", () => {
           code: `
             client.log({
               action: 'user.created',
-              metadata: { 
+              metadata: {
                 email: user.email,
-                phone: user.phone 
+                phone: user.phone
               }
             });
           `,
@@ -154,7 +154,7 @@ describe("no-pii-in-logs", () => {
           code: `
             logvault.log({
               action: 'user.created',
-              metadata: { 
+              metadata: {
                 user: { email: profile.email }
               }
             });
