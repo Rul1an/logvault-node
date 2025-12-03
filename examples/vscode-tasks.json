@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json.schemastore.org/tasks",
+  "version": "2.0.0",
+  "_comment": "Generic VS Code tasks for projects using LogVault. Copy to your .vscode/tasks.json",
+  "tasks": [
+    {
+      "label": "Dev: Start",
+      "type": "shell",
+      "command": "npm run dev",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "."
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Ready|started|listening"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Lint: Check",
+      "type": "shell",
+      "command": "npm run lint",
+      "group": "test",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "Lint: Fix",
+      "type": "shell",
+      "command": "npm run lint -- --fix",
+      "group": "test"
+    },
+    {
+      "label": "TypeScript: Check",
+      "type": "shell",
+      "command": "npx tsc --noEmit",
+      "group": "test",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Test: Run All",
+      "type": "shell",
+      "command": "npm test",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Test: Watch",
+      "type": "shell",
+      "command": "npm test -- --watch",
+      "group": "test",
+      "isBackground": true
+    },
+    {
+      "label": "Build: Production",
+      "type": "shell",
+      "command": "npm run build",
+      "group": "build"
+    },
+    {
+      "label": "Pre-commit: Full Check",
+      "dependsOn": ["Lint: Check", "TypeScript: Check", "Test: Run All"],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
+
