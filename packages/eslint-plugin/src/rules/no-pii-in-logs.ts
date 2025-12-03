@@ -87,23 +87,23 @@ export default createRule<Options, MessageIds>({
         if (!propName) continue;
 
         // Check if this is a PII field
-        if (!isPIIField(propName, piiFields)) continue;
-
-        // Check if value is transformed
-        if (isTransformed(prop.value, transformers)) continue;
-
-        // Check if value is direct property access (not transformed)
-        if (isDirectPropertyAccess(prop.value)) {
-          context.report({
-            node: prop,
-            messageId: "piiInLogs",
-            data: {
-              field: propName,
-            },
-          });
+        if (isPIIField(propName, piiFields)) {
+          // Check if value is transformed
+          if (!isTransformed(prop.value, transformers)) {
+            // Check if value is direct property access (not transformed)
+            if (isDirectPropertyAccess(prop.value)) {
+              context.report({
+                node: prop,
+                messageId: "piiInLogs",
+                data: {
+                  field: propName,
+                },
+              });
+            }
+          }
         }
 
-        // Recursively check nested objects
+        // Always recursively check nested objects (regardless of parent name)
         if (prop.value.type === "ObjectExpression") {
           checkObjectProperties(prop.value, reportNode);
         }
