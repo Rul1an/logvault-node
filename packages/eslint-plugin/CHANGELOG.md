@@ -1,5 +1,11 @@
 # @logvault/eslint-plugin
 
+## 0.2.2
+
+### Patch Changes
+
+- ced8734: Retry npm publish with updated authentication token
+
 ## 0.2.1
 
 ### Patch Changes
