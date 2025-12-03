@@ -1,6 +1,6 @@
 {
   "name": "@logvault/eslint-plugin",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "ESLint plugin for audit gap detection - Shift-Left Compliance",
   "keywords": [
     "eslint",

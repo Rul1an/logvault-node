@@ -1,5 +1,13 @@
 # @logvault/eslint-plugin
 
+## 0.2.3
+
+### Patch Changes
+
+- a8c3fa1: Fix infinite recursion in AST traversal
+
+  Skip circular reference keys (parent, tokens, comments, loc, range) during AST node traversal to prevent stack overflow errors.
+
 ## 0.2.2
 
 ### Patch Changes
