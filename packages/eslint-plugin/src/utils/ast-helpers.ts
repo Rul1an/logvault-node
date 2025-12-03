@@ -39,6 +39,9 @@ export function containsLogVaultCall(
 ): boolean {
   let found = false;
 
+  // Keys to skip during traversal (avoid circular references)
+  const skipKeys = new Set(["parent", "tokens", "comments", "loc", "range"]);
+
   function traverse(current: TSESTree.Node): void {
     if (found) return;
 
@@ -49,6 +52,8 @@ export function containsLogVaultCall(
 
     // Traverse child nodes
     for (const key of Object.keys(current) as (keyof typeof current)[]) {
+      if (skipKeys.has(key)) continue;
+
       const value = current[key];
 
       if (value && typeof value === "object") {
@@ -100,6 +105,9 @@ export function isConsoleErrorCall(node: TSESTree.Node): boolean {
 export function containsConsoleError(node: TSESTree.Node): boolean {
   let found = false;
 
+  // Keys to skip during traversal (avoid circular references)
+  const skipKeys = new Set(["parent", "tokens", "comments", "loc", "range"]);
+
   function traverse(current: TSESTree.Node): void {
     if (found) return;
 
@@ -109,6 +117,8 @@ export function containsConsoleError(node: TSESTree.Node): boolean {
     }
 
     for (const key of Object.keys(current) as (keyof typeof current)[]) {
+      if (skipKeys.has(key)) continue;
+
       const value = current[key];
 
       if (value && typeof value === "object") {
