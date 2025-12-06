@@ -1,5 +1,11 @@
 # @logvault/eslint-plugin
 
+## 0.2.4
+
+### Patch Changes
+
+- ec38fc7: Fix PII detection in nested objects - now correctly detects PII fields inside `metadata` and other nested structures
+
 ## 0.2.3
 
 ### Patch Changes
